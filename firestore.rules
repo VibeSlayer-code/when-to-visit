@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Common functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    // Places collection rules
+    match /places/{placeId} {
+      // Anyone can read places
+      allow read: if true;
+      
+      // Only authenticated users can create places
+      allow create: if isSignedIn() && 
+                     request.resource.data.name is string &&
+                     request.resource.data.name.size() > 0 &&
+                     request.resource.data.category is string &&
+                     request.resource.data.addedBy == request.auth.uid;
+      
+      // Only the creator can update or delete places
+      allow update, delete: if isOwner(resource.data.addedBy);
+    }
+    
+    // Reports collection rules
+    match /reports/{reportId} {
+      // Anyone can read reports
+      allow read: if true;
+      
+      // Only authenticated users can create reports
+      allow create: if isSignedIn() && 
+                     request.resource.data.placeId is string &&
+                     request.resource.data.crowdLevel is number &&
+                     request.resource.data.crowdLevel >= 1 &&
+                     request.resource.data.crowdLevel <= 3 &&
+                     request.resource.data.userId == request.auth.uid;
+      
+      // Only the creator can update or delete their reports
+      allow update, delete: if isOwner(resource.data.userId);
+    }
+  }
+}
